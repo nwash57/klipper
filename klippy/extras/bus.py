@@ -40,7 +40,7 @@ def resolve_bus_name(mcu, param, bus):
 # Helper code for working with devices connected to an MCU via an SPI bus
 class MCU_SPI:
     def __init__(self, mcu, bus, pin, mode, speed, sw_pins=None,
-                 cs_active_high=False):
+                 cs_active_high=False, sw_bus_width=8):
         self.mcu = mcu
         self.bus = bus
         # Config SPI object (set all CS pins high before spi_set_bus commands)
@@ -54,8 +54,9 @@ class MCU_SPI:
         if sw_pins is not None:
             self.config_fmt = (
                 "spi_set_software_bus oid=%d"
-                " miso_pin=%s mosi_pin=%s sclk_pin=%s mode=%d rate=%d"
-                % (self.oid, sw_pins[0], sw_pins[1], sw_pins[2], mode, speed))
+                " miso_pin=%s mosi_pin=%s sclk_pin=%s mode=%d rate=%d width=%d"
+                % (self.oid, sw_pins[0], sw_pins[1], sw_pins[2],
+                mode, speed, sw_bus_width))
         else:
             self.config_fmt = (
                 "spi_set_bus oid=%d spi_bus=%%s mode=%d rate=%d"
@@ -106,7 +107,7 @@ class MCU_SPI:
 # Helper to setup an spi bus from settings in a config section
 def MCU_SPI_from_config(config, mode, pin_option="cs_pin",
                         default_speed=100000, share_type=None,
-                        cs_active_high=False):
+                        cs_active_high=False, sw_bus_width=8):
     # Determine pin from config
     ppins = config.get_printer().lookup_object("pins")
     cs_pin = config.get(pin_option)
@@ -118,6 +119,7 @@ def MCU_SPI_from_config(config, mode, pin_option="cs_pin",
     # Load bus parameters
     mcu = cs_pin_params['chip']
     speed = config.getint('spi_speed', default_speed, minval=100000)
+    sw_bus_width = config.getint('spi_software_bus_width', sw_bus_width, minval=1, maxval=32)
     if config.get('spi_software_sclk_pin', None) is not None:
         sw_pin_names = ['spi_software_%s_pin' % (name,)
                         for name in ['miso', 'mosi', 'sclk']]
@@ -133,7 +135,7 @@ def MCU_SPI_from_config(config, mode, pin_option="cs_pin",
         bus = config.get('spi_bus', None)
         sw_pins = None
     # Create MCU_SPI object
-    return MCU_SPI(mcu, bus, pin, mode, speed, sw_pins, cs_active_high)
+    return MCU_SPI(mcu, bus, pin, mode, speed, sw_pins, cs_active_high, sw_bus_width)
 
 
 ######################################################################

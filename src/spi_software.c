@@ -14,13 +14,15 @@ struct spi_software {
     struct gpio_in miso;
     struct gpio_out mosi, sclk;
     uint8_t mode;
+    uint8_t width;
 };
 
 void
 command_spi_set_software_bus(uint32_t *args)
 {
     uint8_t mode = args[4];
-    if (mode > 3)
+    uint8_t width = args[6];
+    if (mode > 3 || width < 1 || width > 32)
         shutdown("Invalid spi config");
 
     struct spidev_s *spi = spidev_oid_lookup(args[0]);
@@ -29,37 +31,39 @@ command_spi_set_software_bus(uint32_t *args)
     ss->mosi = gpio_out_setup(args[2], 0);
     ss->sclk = gpio_out_setup(args[3], 0);
     ss->mode = mode;
+    ss->width = width;
     spidev_set_software_bus(spi, ss);
 }
 DECL_COMMAND(command_spi_set_software_bus,
              "spi_set_software_bus oid=%c miso_pin=%u mosi_pin=%u sclk_pin=%u"
-             " mode=%u rate=%u");
+             " mode=%u rate=%u width=%u");
 
 void
-spi_software_prepare(struct spi_software *ss)
+spi_software_prepare(const struct spi_software *ss)
 {
     gpio_out_write(ss->sclk, ss->mode & 0x02);
 }
 
 void
-spi_software_transfer(struct spi_software *ss, uint8_t receive_data
-                      , uint8_t len, uint8_t *data)
+spi_software_transfer(const struct spi_software *ss, uint8_t receive_data
+                      ,uint8_t len, uint32_t *data)
 {
+    uint32_t bit_select = 1 << ss->width;
     while (len--) {
-        uint8_t outbuf = *data;
-        uint8_t inbuf = 0;
-        for (uint_fast8_t i = 0; i < 8; i++) {
+        uint32_t outbuf = *data;
+        uint32_t inbuf = 0;
+        for (uint_fast8_t i = 0; i < ss->width; i++) {
             if (ss->mode & 0x01) {
                 // MODE 1 & 3
                 gpio_out_toggle(ss->sclk);
-                gpio_out_write(ss->mosi, outbuf & 0x80);
+                gpio_out_write(ss->mosi, outbuf & bit_select);
                 outbuf <<= 1;
                 gpio_out_toggle(ss->sclk);
                 inbuf <<= 1;
                 inbuf |= gpio_in_read(ss->miso);
             } else {
                 // MODE 0 & 2
-                gpio_out_write(ss->mosi, outbuf & 0x80);
+                gpio_out_write(ss->mosi, outbuf & bit_select);
                 outbuf <<= 1;
                 gpio_out_toggle(ss->sclk);
                 inbuf <<= 1;
