@@ -131,6 +131,43 @@ command_spi_send(uint32_t *args)
 }
 DECL_COMMAND(command_spi_send, "spi_send oid=%c data=%*s");
 
+void spidev_transfer_arbitrary_1(struct spidev_s *spi, uint8_t receive_data, uint32_t *data)
+{
+    uint_fast8_t flags = spi->flags;
+    if (!(flags & (SF_SOFTWARE | SF_HARDWARE)))
+        // Not yet initialized
+        return;
+
+    if (CONFIG_HAVE_GPIO_BITBANGING && flags & SF_SOFTWARE)
+        spi_software_prepare(spi->spi_software);
+    else
+    {
+        // Not yet implimented
+        return;
+    }
+
+    if (flags & SF_HAVE_PIN)
+        gpio_out_write(spi->pin, !!(flags & SF_CS_ACTIVE_HIGH));
+
+    if (CONFIG_HAVE_GPIO_BITBANGING && flags & SF_SOFTWARE)
+        spi_software_transfer_uint32(spi->spi_software, receive_data, data);
+    else
+    {
+        // Not yet implimented
+        return;
+    }
+
+    if (flags & SF_HAVE_PIN)
+        gpio_out_write(spi->pin, !(flags & SF_CS_ACTIVE_HIGH));
+}
+
+void command_spi_send_arbitrary_1(uint32_t *args)
+{
+    struct spidev_s *spi = spidev_oid_lookup(args[0]);
+    uint32_t data = args[1];
+    spidev_transfer_arbitrary_1(spi, 0, &data);
+}
+DECL_COMMAND(command_spi_send_arbitrary_1, "spi_send_arbitrary_1 oid=%c data=%u");
 
 /****************************************************************
  * Shutdown handling

@@ -45,25 +45,29 @@ spi_software_prepare(const struct spi_software *ss)
 }
 
 void
-spi_software_transfer(const struct spi_software *ss, uint8_t receive_data
-                      ,uint8_t len, uint32_t *data)
+spi_software_transfer(struct spi_software *ss, uint8_t receive_data
+                     , uint8_t len, uint8_t *data)
 {
-    uint32_t bit_select = 1 << ss->width;
-    while (len--) {
-        uint32_t outbuf = *data;
-        uint32_t inbuf = 0;
-        for (uint_fast8_t i = 0; i < ss->width; i++) {
-            if (ss->mode & 0x01) {
+    while (len--)
+    {
+        uint8_t outbuf = *data;
+        uint8_t inbuf = 0;
+        for (uint_fast8_t i = 0; i < 8; i++)
+        {
+            if (ss->mode & 0x01)
+            {
                 // MODE 1 & 3
                 gpio_out_toggle(ss->sclk);
-                gpio_out_write(ss->mosi, outbuf & bit_select);
+                gpio_out_write(ss->mosi, outbuf & 0x80);
                 outbuf <<= 1;
                 gpio_out_toggle(ss->sclk);
                 inbuf <<= 1;
                 inbuf |= gpio_in_read(ss->miso);
-            } else {
+            }
+            else
+            {
                 // MODE 0 & 2
-                gpio_out_write(ss->mosi, outbuf & bit_select);
+                gpio_out_write(ss->mosi, outbuf & 0x80);
                 outbuf <<= 1;
                 gpio_out_toggle(ss->sclk);
                 inbuf <<= 1;
@@ -76,4 +80,36 @@ spi_software_transfer(const struct spi_software *ss, uint8_t receive_data
             *data = inbuf;
         data++;
     }
+}
+
+void
+spi_software_transfer_uint32(struct spi_software *ss, uint8_t receive_data
+                      , uint32_t *data)
+{
+    uint32_t bit_select = 1 << ss->width;
+
+    uint32_t outbuf = *data;
+    uint32_t inbuf = 0;
+    for (uint_fast8_t i = 0; i < ss->width; i++) {
+        if (ss->mode & 0x01) {
+            // MODE 1 & 3
+            gpio_out_toggle(ss->sclk);
+            gpio_out_write(ss->mosi, outbuf & bit_select);
+            outbuf <<= 1;
+            gpio_out_toggle(ss->sclk);
+            inbuf <<= 1;
+            inbuf |= gpio_in_read(ss->miso);
+        } else {
+            // MODE 0 & 2
+            gpio_out_write(ss->mosi, outbuf & bit_select);
+            outbuf <<= 1;
+            gpio_out_toggle(ss->sclk);
+            inbuf <<= 1;
+            inbuf |= gpio_in_read(ss->miso);
+            gpio_out_toggle(ss->sclk);
+        }
+    }
+
+    if (receive_data)
+        *data = inbuf;
 }
