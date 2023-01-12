@@ -81,7 +81,8 @@ void
 spi_software_transfer_uint32(struct spi_software *ss, uint8_t receive_data
                       , uint32_t *data)
 {
-    uint32_t bit_select = 1 << (ss->width - 1);
+    // mandatory to use 1UL instead of 1 to avoid overflow to 0
+    uint32_t bit_select = 1UL << (ss->width - 1);
 
     uint32_t outbuf = *data;
     uint32_t inbuf = 0;
@@ -89,15 +90,20 @@ spi_software_transfer_uint32(struct spi_software *ss, uint8_t receive_data
         if (ss->mode & 0x01) {
             // MODE 1 & 3
             gpio_out_toggle(ss->sclk);
-            // gpio_out_write(ss->mosi, outbuf & bit_select);
-            gpio_out_write(ss->mosi, 1);
+
+            // !! is mandatory as cast uint32_t above 255 to uint8_t produces 0
+            gpio_out_write(ss->mosi, !!(outbuf & bit_select) );
+
             outbuf <<= 1;
             gpio_out_toggle(ss->sclk);
             inbuf <<= 1;
             inbuf |= gpio_in_read(ss->miso);
         } else {
             // MODE 0 & 2
-            gpio_out_write(ss->mosi, outbuf & bit_select);
+
+            // !! is mandatory as cast uint32_t above 255 to uint8_t produces 0
+            gpio_out_write(ss->mosi, !!(outbuf & bit_select) );
+
             outbuf <<= 1;
             gpio_out_toggle(ss->sclk);
             inbuf <<= 1;
