@@ -161,6 +161,8 @@ void spidev_transfer_arbitrary_1(struct spidev_s *spi, uint8_t receive_data, uin
         gpio_out_write(spi->pin, !(flags & SF_CS_ACTIVE_HIGH));
 }
 
+// send 1 uint32_t with arbitrary data width (up to 32 bits) depending on sw
+// spi config
 void command_spi_send_arbitrary_1(uint32_t *args)
 {
     struct spidev_s *spi = spidev_oid_lookup(args[0]);

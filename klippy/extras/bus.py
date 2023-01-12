@@ -4,6 +4,7 @@
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
 import mcu
+import logging
 
 def resolve_bus_name(mcu, param, bus):
     # Find enumerations for the given bus
@@ -63,7 +64,8 @@ class MCU_SPI:
                 % (self.oid, mode, speed))
         self.cmd_queue = mcu.alloc_command_queue()
         mcu.register_config_callback(self.build_config)
-        self.spi_send_cmd = self.spi_transfer_cmd = None
+        self.spi_send_cmd = self.spi_transfer_cmd = \
+            self.spi_send_arb1_cmd = None
     def setup_shutdown_msg(self, shutdown_seq):
         shutdown_msg = "".join(["%02x" % (x,) for x in shutdown_seq])
         self.mcu.add_config_cmd(
@@ -82,6 +84,8 @@ class MCU_SPI:
         self.mcu.add_config_cmd(self.config_fmt)
         self.spi_send_cmd = self.mcu.lookup_command(
             "spi_send oid=%c data=%*s", cq=self.cmd_queue)
+        self.spi_send_arb1_cmd = self.mcu.lookup_command(
+            "spi_send_arbitrary_1 oid=%c data=%u", cq=self.cmd_queue)
         self.spi_transfer_cmd = self.mcu.lookup_query_command(
             "spi_transfer oid=%c data=%*s",
             "spi_transfer_response oid=%c response=%*s", oid=self.oid,
@@ -95,6 +99,10 @@ class MCU_SPI:
             return
         self.spi_send_cmd.send([self.oid, data],
                                minclock=minclock, reqclock=reqclock)
+    def spi_send_arb1(self, data, minclock=0, reqclock=0):
+        self.spi_send_arb1_cmd.send([self.oid, data],
+                               minclock=minclock, reqclock=reqclock)
+        logging.error("spi_send_arb1: %#x" % (data,))
     def spi_transfer(self, data, minclock=0, reqclock=0):
         return self.spi_transfer_cmd.send([self.oid, data],
                                           minclock=minclock, reqclock=reqclock)
