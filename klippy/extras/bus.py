@@ -102,7 +102,6 @@ class MCU_SPI:
     def spi_send_arb1(self, data, minclock=0, reqclock=0):
         self.spi_send_arb1_cmd.send([self.oid, data],
                                minclock=minclock, reqclock=reqclock)
-        logging.error("spi_send_arb1: %#x" % (data,))
     def spi_transfer(self, data, minclock=0, reqclock=0):
         return self.spi_transfer_cmd.send([self.oid, data],
                                           minclock=minclock, reqclock=reqclock)
