@@ -138,24 +138,24 @@ void spidev_transfer_arbitrary_1(struct spidev_s *spi, uint8_t receive_data, uin
         // Not yet initialized
         return;
 
-    if (CONFIG_HAVE_GPIO_BITBANGING && flags & SF_SOFTWARE)
-        spi_software_prepare(spi->spi_software);
-    else
-    {
-        // Not yet implimented
-        return;
-    }
+//     if (CONFIG_HAVE_GPIO_BITBANGING && flags & SF_SOFTWARE)
+//         spi_software_prepare(spi->spi_software);
+//     else
+//     {
+//         // Not yet implimented
+//         return;
+//     }
 
     if (flags & SF_HAVE_PIN)
         gpio_out_write(spi->pin, !!(flags & SF_CS_ACTIVE_HIGH));
 
-    if (CONFIG_HAVE_GPIO_BITBANGING && flags & SF_SOFTWARE)
-        spi_software_transfer_uint32(spi->spi_software, receive_data, data);
-    else
-    {
-        // Not yet implimented
-        return;
-    }
+//     if (CONFIG_HAVE_GPIO_BITBANGING && flags & SF_SOFTWARE)
+//         spi_software_transfer_uint32(spi->spi_software, receive_data, data);
+//     else
+//     {
+//         // Not yet implimented
+//         return;
+//     }
 
     if (flags & SF_HAVE_PIN)
         gpio_out_write(spi->pin, !(flags & SF_CS_ACTIVE_HIGH));
