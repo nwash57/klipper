@@ -4,6 +4,7 @@
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
 import mcu
+import logging
 
 def resolve_bus_name(mcu, param, bus):
     # Find enumerations for the given bus
@@ -40,7 +41,7 @@ def resolve_bus_name(mcu, param, bus):
 # Helper code for working with devices connected to an MCU via an SPI bus
 class MCU_SPI:
     def __init__(self, mcu, bus, pin, mode, speed, sw_pins=None,
-                 cs_active_high=False):
+                 cs_active_high=False, sw_bus_width=8):
         self.mcu = mcu
         self.bus = bus
         # Config SPI object (set all CS pins high before spi_set_bus commands)
@@ -54,15 +55,17 @@ class MCU_SPI:
         if sw_pins is not None:
             self.config_fmt = (
                 "spi_set_software_bus oid=%d"
-                " miso_pin=%s mosi_pin=%s sclk_pin=%s mode=%d rate=%d"
-                % (self.oid, sw_pins[0], sw_pins[1], sw_pins[2], mode, speed))
+                " miso_pin=%s mosi_pin=%s sclk_pin=%s mode=%d rate=%d width=%d"
+                % (self.oid, sw_pins[0], sw_pins[1], sw_pins[2],
+                mode, speed, sw_bus_width))
         else:
             self.config_fmt = (
                 "spi_set_bus oid=%d spi_bus=%%s mode=%d rate=%d"
                 % (self.oid, mode, speed))
         self.cmd_queue = mcu.alloc_command_queue()
         mcu.register_config_callback(self.build_config)
-        self.spi_send_cmd = self.spi_transfer_cmd = None
+        self.spi_send_cmd = self.spi_transfer_cmd = \
+            self.spi_send_arb1_cmd = None
     def setup_shutdown_msg(self, shutdown_seq):
         shutdown_msg = "".join(["%02x" % (x,) for x in shutdown_seq])
         self.mcu.add_config_cmd(
@@ -81,6 +84,8 @@ class MCU_SPI:
         self.mcu.add_config_cmd(self.config_fmt)
         self.spi_send_cmd = self.mcu.lookup_command(
             "spi_send oid=%c data=%*s", cq=self.cmd_queue)
+        self.spi_send_arb1_cmd = self.mcu.lookup_command(
+            "spi_send_arbitrary_1 oid=%c data=%u", cq=self.cmd_queue)
         self.spi_transfer_cmd = self.mcu.lookup_query_command(
             "spi_transfer oid=%c data=%*s",
             "spi_transfer_response oid=%c response=%*s", oid=self.oid,
@@ -94,6 +99,9 @@ class MCU_SPI:
             return
         self.spi_send_cmd.send([self.oid, data],
                                minclock=minclock, reqclock=reqclock)
+    def spi_send_arb1(self, data, minclock=0, reqclock=0):
+        self.spi_send_arb1_cmd.send([self.oid, data],
+                               minclock=minclock, reqclock=reqclock)
     def spi_transfer(self, data, minclock=0, reqclock=0):
         return self.spi_transfer_cmd.send([self.oid, data],
                                           minclock=minclock, reqclock=reqclock)
@@ -106,7 +114,7 @@ class MCU_SPI:
 # Helper to setup an spi bus from settings in a config section
 def MCU_SPI_from_config(config, mode, pin_option="cs_pin",
                         default_speed=100000, share_type=None,
-                        cs_active_high=False):
+                        cs_active_high=False, sw_bus_width=8):
     # Determine pin from config
     ppins = config.get_printer().lookup_object("pins")
     cs_pin = config.get(pin_option)
@@ -118,6 +126,7 @@ def MCU_SPI_from_config(config, mode, pin_option="cs_pin",
     # Load bus parameters
     mcu = cs_pin_params['chip']
     speed = config.getint('spi_speed', default_speed, minval=100000)
+    sw_bus_width = config.getint('spi_software_bus_width', sw_bus_width, minval=1, maxval=32)
     if config.get('spi_software_sclk_pin', None) is not None:
         sw_pin_names = ['spi_software_%s_pin' % (name,)
                         for name in ['miso', 'mosi', 'sclk']]
@@ -133,7 +142,7 @@ def MCU_SPI_from_config(config, mode, pin_option="cs_pin",
         bus = config.get('spi_bus', None)
         sw_pins = None
     # Create MCU_SPI object
-    return MCU_SPI(mcu, bus, pin, mode, speed, sw_pins, cs_active_high)
+    return MCU_SPI(mcu, bus, pin, mode, speed, sw_pins, cs_active_high, sw_bus_width)
 
 
 ######################################################################
